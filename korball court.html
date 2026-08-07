@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Korfball Tactics Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --chrome-0:#0B121C;
+    --chrome-1:#121B29;
+    --chrome-2:#1B2635;
+    --chrome-line:#2A3648;
+    --ink-hi:#EDF2F8;
+    --ink-lo:#8CA0B8;
+    --court-surface:#EEF3F8;
+    --court-line:#1A5276;
+    --korf-zone:#F2994A;
+    --korf-zone-line:#0B1220;
+    --penalty:#1A5276;
+    --team-a:#2563EB;
+    --team-a-dk:#123C86;
+    --team-b:#8E44AD;
+    --team-b-dk:#4A2359;
+--ball:#F4C81C;
+    --ball-dk:#2A1E6E;
+    --ball-svg:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%232A3F9E'/%3E%3Cpolygon points='50,34 63.86,42 63.86,58 50,66 36.14,58 36.14,42' fill='%233D5FE0'/%3E%3Cpolygon points='36.15,10 50.01,18 50.01,34 36.15,42 22.29,34 22.29,18' fill='%23F6DBA3'/%3E%3Cpolygon points='63.85,10 77.71,18 77.71,34 63.85,42 49.99,34 49.99,18' fill='%23F6DBA3'/%3E%3Cpolygon points='22.3,34 36.16,42 36.16,58 22.3,66 8.44,58 8.44,42' fill='%23F2994A'/%3E%3Cpolygon points='77.7,34 91.56,42 91.56,58 77.7,66 63.84,58 63.84,42' fill='%23F0813F'/%3E%3Cpolygon points='36.15,58 50.01,66 50.01,82 36.15,90 22.29,82 22.29,66' fill='%23F6DBA3'/%3E%3Cpolygon points='63.85,58 77.71,66 77.71,82 63.85,90 49.99,82 49.99,66' fill='%23F2994A'/%3E%3C/svg%3E");    --warn:#F2C94C;
+    --danger:#E0457B;
+    --radius:10px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{
+    height:100%; margin:0; padding:0; overflow:hidden;
+    background:var(--chrome-0);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+    color:var(--ink-hi);
+    -webkit-user-select:none; user-select:none;
+    overscroll-behavior:none;
+  }
+  #app{
+    height:100vh; height:100dvh; display:flex; flex-direction:column;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  }
+
+  /* ---------- Top bar ---------- */
+  #topbar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 16px; background:var(--chrome-1); border-bottom:1px solid var(--chrome-line);
+    flex-shrink:0;
+  }
+  #brand{ display:flex; align-items:center; gap:8px; }
+  #brand .mark{
+    width:20px; height:20px; border-radius:50%;
+    border:3px solid var(--korf-zone); position:relative;
+  }
+  #brand .mark::after{
+    content:""; position:absolute; left:50%; top:-1px; width:2px; height:6px;
+    background:var(--ink-lo); transform:translateX(-50%);
+  }
+  #brand h1{ font-size:15px; font-weight:700; margin:0; letter-spacing:0.01em; }
+
+  #tabs{ display:flex; gap:2px; background:var(--chrome-2); border-radius:999px; padding:3px; }
+  #tabs button{
+    appearance:none; border:none; background:transparent; color:var(--ink-lo);
+    font-family:inherit; font-size:13px; font-weight:600; padding:8px 16px;
+    border-radius:999px; cursor:pointer; transition:background .15s, color .15s;
+  }
+  #tabs button.active{ background:var(--korf-zone); color:#231000; }
+
+  #topbar-right{ display:flex; align-items:center; gap:10px; }
+  .icon-btn{
+    appearance:none; border:1px solid var(--chrome-line); background:var(--chrome-2);
+    color:var(--ink-hi); width:38px; height:38px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    font-size:16px;
+  }
+  .icon-btn:active{ background:var(--chrome-line); }
+
+  /* ---------- Court stage ---------- */
+  #stage{ position:relative; flex:1; min-height:0; background:var(--chrome-0); display:flex; }
+  .board{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+    padding:6px;
+  }
+  .board.active{ display:flex; }
+  .court-frame{
+    position:relative;
+    box-shadow:0 0 0 1px var(--chrome-line);
+    border-radius:6px; overflow:hidden; touch-action:none;
+    background:var(--court-surface);
+  }
+  .court-frame svg{ display:block; width:100%; height:100%; }
+  .token-layer{ position:absolute; inset:0; z-index:3; }
+  .draw-canvas{ position:absolute; inset:0; z-index:4; touch-action:none; }
+  .draw-canvas.inactive{ pointer-events:none; }
+
+  /* zone side switch, floats top-left of zone board */
+  #zoneSwitch{
+    position:absolute; top:10px; left:10px; z-index:5;
+    display:flex; gap:2px; background:rgba(11,18,32,0.85); border-radius:999px; padding:3px;
+  }
+  #zoneSwitch button{
+    appearance:none; border:none; background:transparent; color:#cfe0f2;
+    font-family:inherit; font-size:12px; font-weight:600; padding:7px 12px;
+    border-radius:999px; cursor:pointer;
+  }
+  #zoneSwitch button.active{ background:var(--korf-zone); color:#231000; }
+
+  .trash-bin{
+    position:absolute; left:50%; bottom:14px; transform:translateX(-50%) scale(0.85);
+    width:56px; height:56px; border-radius:50%;
+    background:rgba(11,18,32,0.82); border:2px dashed var(--ink-lo);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; pointer-events:none; z-index:6;
+    transition:opacity .15s, transform .15s, background .15s, border-color .15s;
+  }
+  .trash-bin.show{ opacity:1; transform:translateX(-50%) scale(1); }
+  .trash-bin.hover{ background:var(--danger); border-color:#fff; transform:translateX(-50%) scale(1.15); }
+  .trash-bin svg{ width:24px; height:24px; }
+
+  /* ---------- Player tokens ---------- */
+  .token{
+    position:absolute; width:44px; height:44px; margin-left:-22px; margin-top:-22px;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-weight:800; font-size:15px; cursor:grab;
+    border:2.5px solid rgba(255,255,255,0.92);
+    box-shadow:0 1px 3px rgba(0,0,0,0.45);
+    touch-action:none;
+  }
+  .token.dragging{ cursor:grabbing; box-shadow:0 3px 10px rgba(0,0,0,0.55); z-index:10; }
+  .token.female{ border-radius:50%; }
+  .token.male{ border-radius:9px; }
+  .token.team-a{ background:var(--team-a); }
+  .token.team-b{ background:var(--team-b); }
+  .token.ball{
+    width:32px; height:32px; margin-left:-16px; margin-top:-16px;
+    background-image:var(--ball-svg);
+    background-size:cover; background-position:center;
+    border-radius:50%; border:2px solid var(--ball-dk);
+    font-size:0;
+  }
+  .token.marked{ outline:3px solid var(--danger); outline-offset:2px; }
+
+  /* ---------- Bottom dock ---------- */
+  #dock{
+    flex-shrink:0; background:var(--chrome-1); border-top:1px solid var(--chrome-line);
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; gap:14px; overflow-x:auto;
+  }
+  .dock-group{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .dock-label{ font-size:10px; font-weight:700; color:var(--ink-lo); text-transform:uppercase; letter-spacing:.06em; margin-right:2px; }
+  .dock-sep{ width:1px; align-self:stretch; background:var(--chrome-line); flex-shrink:0; }
+
+  .add-btn{
+    appearance:none; border:none; width:40px; height:40px; border-radius:9px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:14px; color:#fff; cursor:pointer; flex-shrink:0;
+    border:2px solid rgba(255,255,255,0.85);
+  }
+  .add-btn:active{ transform:scale(0.94); }
+  .add-btn.female{ border-radius:50%; }
+  .add-btn.male{ border-radius:9px; }
+  .add-btn.team-a{ background:var(--team-a); }
+  .add-btn.team-b{ background:var(--team-b); }
+  .add-btn.ball{
+    background-image:var(--ball-svg);
+    background-size:cover; background-position:center;
+    border-color:var(--ball-dk); color:var(--ball-dk); border-radius:50%;
+  }
+
+  .swatch{
+    width:30px; height:30px; border-radius:50%; border:2px solid rgba(255,255,255,0.25);
+    cursor:pointer; flex-shrink:0; padding:0;
+  }
+  .swatch.active{ border-color:#fff; box-shadow:0 0 0 2px var(--korf-zone); }
+
+  .mode-toggle{
+    display:flex; background:var(--chrome-2); border-radius:9px; padding:3px; flex-shrink:0;
+  }
+  .mode-toggle button{
+    appearance:none; border:none; background:transparent; color:var(--ink-lo);
+    font-family:inherit; font-size:12px; font-weight:700; padding:9px 14px;
+    border-radius:7px; cursor:pointer; white-space:nowrap;
+  }
+  .mode-toggle button.active{ background:var(--korf-zone); color:#231000; }
+
+  .util-btn{
+    appearance:none; border:1px solid var(--chrome-line); background:var(--chrome-2);
+    color:var(--ink-hi); font-family:inherit; font-size:12px; font-weight:600;
+    padding:0 14px; height:40px; border-radius:9px; cursor:pointer; white-space:nowrap; flex-shrink:0;
+  }
+  .util-btn:active{ background:var(--chrome-line); }
+  .util-btn.danger{ color:#F7C1C1; border-color:#5A2323; }
+
+  #dock::-webkit-scrollbar{ height:0; }
+
+  #toast{
+    position:absolute; bottom:96px; left:50%; transform:translateX(-50%) translateY(8px);
+    background:rgba(11,18,32,0.92); color:var(--ink-hi); font-size:12px; font-weight:600;
+    padding:8px 14px; border-radius:999px; border:1px solid var(--chrome-line);
+    opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:20;
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  #rotatePrompt{
+    display:none; position:fixed; inset:0; z-index:100;
+    background:var(--chrome-0); color:var(--ink-hi);
+    flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    text-align:center; padding:24px;
+  }
+  #rotatePrompt .glyph{ font-size:40px; }
+  #rotatePrompt h2{ font-size:16px; font-weight:700; margin:0; }
+  #rotatePrompt p{ font-size:13px; color:var(--ink-lo); margin:0; max-width:260px; }
+  @media (orientation:portrait){
+    #rotatePrompt{ display:flex; }
+    #app{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div id="rotatePrompt">
+  <div class="glyph">&#8635;</div>
+  <h2>Rotate to landscape</h2>
+  <p>This tactics board is built for iPad landscape — turn your iPad sideways to get the full court.</p>
+</div>
+<div id="app">
+
+  <div id="topbar">
+    <div id="brand">
+      <div class="mark"></div>
+      <h1>Korfball Tactics Board</h1>
+    </div>
+    <div id="tabs">
+      <button id="tabFullBtn" class="active">Full court</button>
+      <button id="tabZoneBtn">Zone view</button>
+    </div>
+    <div id="topbar-right">
+      <button class="icon-btn" id="resetBtn" title="Reset board">&#8635;</button>
+    </div>
+  </div>
+
+  <div id="stage">
+
+    <div class="board active" id="boardFull">
+      <div class="court-frame" id="frameFull"></div>
+    </div>
+
+    <div class="board" id="boardZone">
+      <div id="zoneSwitch">
+        <button id="zoneLeftBtn" class="active">Korf A</button>
+        <button id="zoneRightBtn">Korf B</button>
+      </div>
+      <div class="court-frame" id="frameZone"></div>
+    </div>
+
+    <div id="toast"></div>
+  </div>
+
+  <div id="dock">
+    <div class="dock-group">
+      <span class="dock-label">Team A</span>
+      <button class="add-btn team-a male" data-team="A" data-gender="M">M</button>
+      <button class="add-btn team-a female" data-team="A" data-gender="F">F</button>
+    </div>
+    <div class="dock-group">
+      <span class="dock-label">Team B</span>
+      <button class="add-btn team-b male" data-team="B" data-gender="M">M</button>
+      <button class="add-btn team-b female" data-team="B" data-gender="F">F</button>
+    </div>
+    <div class="dock-group">
+      <button class="add-btn ball" id="addBallBtn" title="Add ball"></button>
+    </div>
+
+    <div class="dock-sep"></div>
+
+    <div class="dock-group mode-toggle" id="modeToggle">
+      <button data-mode="move" class="active">Move</button>
+      <button data-mode="draw">Draw</button>
+    </div>
+
+    <div class="dock-group" id="colorGroup">
+      <button class="swatch active" style="background:#E63946" data-color="#E63946"></button>
+      <button class="swatch" style="background:#1D3557" data-color="#1D3557"></button>
+      <button class="swatch" style="background:#2A9D8F" data-color="#2A9D8F"></button>
+      <button class="swatch" style="background:#F2C94C" data-color="#F2C94C"></button>
+    </div>
+
+    <div class="dock-sep"></div>
+
+    <div class="dock-group">
+      <button class="util-btn" id="undoBtn">Undo line</button>
+      <button class="util-btn" id="clearDrawBtn">Clear lines</button>
+      <button class="util-btn danger" id="clearTokensBtn">Clear players</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+
+  /* ================= Court geometry (regulation-proportioned) ================= */
+  /* Full court: 40m x 20m -> viewBox 400 x 200 (10 units per metre) */
+  function courtSVG(kind, side){
+    var W = kind === 'full' ? 400 : 200;
+    var H = 200;
+    var svg = '<svg viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">';
+
+    function korfGroup(postX, mirrored){
+      var dir = mirrored ? -1 : 1;
+      var penaltyX = postX + dir*25;
+      var pillLeft = mirrored ? postX - 50 : postX - 25;
+      var pillRight = mirrored ? postX + 25 : postX + 50;
+      var pillH = 50;
+      var g = '';
+      g += '<rect x="'+pillLeft+'" y="'+(100-pillH/2)+'" width="'+(pillRight-pillLeft)+'" height="'+pillH+'" rx="'+(pillH/2)+'" fill="var(--korf-zone)"/>';
+      g += '<circle cx="'+postX+'" cy="100" r="25" fill="none" stroke="var(--korf-zone-line)" stroke-width="1.5"/>';
+      g += '<line x1="'+penaltyX+'" y1="96" x2="'+penaltyX+'" y2="104" stroke="var(--penalty)" stroke-width="3" stroke-linecap="round"/>';
+      g += '<circle cx="'+postX+'" cy="100" r="4.5" fill="none" stroke="#F2C94C" stroke-width="2.4"/>';
+      g += '<circle cx="'+postX+'" cy="100" r="1.4" fill="#1a1a1a"/>';
+      return g;
+    }
+
+    /* outer boundary + centre line */
+    svg += '<rect x="1" y="1" width="'+(W-2)+'" height="'+(H-2)+'" fill="none" stroke="var(--court-line)" stroke-width="2.2"/>';
+
+    if(kind === 'full'){
+      svg += '<line x1="200" y1="1" x2="200" y2="199" stroke="var(--court-line)" stroke-width="2.2"/>';
+      svg += korfGroup(66.7, false);
+      svg += korfGroup(333.3, true);
+    } else {
+      if(side === 'left'){
+        svg += korfGroup(66.7, false);
+      } else {
+        svg += korfGroup(133.3, true);
+      }
+    }
+
+    svg += '</svg>';
+    return svg;
+  }
+
+  /* ================= Board factory (tokens + drawing) ================= */
+  function createBoard(frameEl, kind, side){
+    frameEl.innerHTML = courtSVG(kind, side);
+    var ratio = kind === 'full' ? (400/200) : (200/200);
+    var boardEl = frameEl.parentElement;
+
+    function fitFrame(){
+      var pw = boardEl.clientWidth, ph = boardEl.clientHeight;
+      if(!pw || !ph) return;
+      var w = pw, h = w / ratio;
+      if(h > ph){ h = ph; w = h * ratio; }
+      frameEl.style.width = Math.floor(w) + 'px';
+      frameEl.style.height = Math.floor(h) + 'px';
+    }
+    fitFrame();
+    new ResizeObserver(fitFrame).observe(boardEl);
+
+    var trash = document.createElement('div');
+    trash.className = 'trash-bin';
+    trash.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'+
+      '<path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>'+
+      '<path d="M10 11v6"/><path d="M14 11v6"/></svg>';
+    boardEl.appendChild(trash);
+
+    var tokenLayer = document.createElement('div');
+    tokenLayer.className = 'token-layer';
+    frameEl.appendChild(tokenLayer);
+
+    var canvas = document.createElement('canvas');
+    canvas.className = 'draw-canvas inactive';
+    frameEl.appendChild(canvas);
+    var ctx = canvas.getContext('2d');
+
+    var strokes = [];
+    var currentStroke = null;
+    var drawColor = '#E63946';
+    var mode = 'move';
+
+    function resizeCanvas(){
+      var rect = frameEl.getBoundingClientRect();
+      var dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.setTransform(dpr,0,0,dpr,0,0);
+      redraw();
+    }
+    new ResizeObserver(resizeCanvas).observe(frameEl);
+
+    function redraw(){
+      var rect = frameEl.getBoundingClientRect();
+      ctx.clearRect(0,0,rect.width,rect.height);
+      strokes.forEach(function(s){ drawStroke(s, rect); });
+    }
+    function drawStroke(s, rect){
+      if(s.points.length < 2) return;
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 3.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      s.points.forEach(function(p, i){
+        var x = p.xr * rect.width, y = p.yr * rect.height;
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      });
+      ctx.stroke();
+      /* arrow head on last segment */
+      if(s.points.length >= 2){
+        var p1 = s.points[s.points.length-2], p2 = s.points[s.points.length-1];
+        var x1=p1.xr*rect.width, y1=p1.yr*rect.height, x2=p2.xr*rect.width, y2=p2.yr*rect.height;
+        var ang = Math.atan2(y2-y1, x2-x1);
+        var size = 9;
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - size*Math.cos(ang - 0.4), y2 - size*Math.sin(ang - 0.4));
+        ctx.lineTo(x2 - size*Math.cos(ang + 0.4), y2 - size*Math.sin(ang + 0.4));
+        ctx.closePath();
+        ctx.fillStyle = s.color;
+        ctx.fill();
+      }
+    }
+
+    canvas.addEventListener('pointerdown', function(e){
+      if(mode !== 'draw') return;
+      canvas.setPointerCapture(e.pointerId);
+      var rect = frameEl.getBoundingClientRect();
+      currentStroke = { color: drawColor, points: [{xr:(e.clientX-rect.left)/rect.width, yr:(e.clientY-rect.top)/rect.height}] };
+    });
+    canvas.addEventListener('pointermove', function(e){
+      if(mode !== 'draw' || !currentStroke) return;
+      var rect = frameEl.getBoundingClientRect();
+      currentStroke.points.push({xr:(e.clientX-rect.left)/rect.width, yr:(e.clientY-rect.top)/rect.height});
+      redraw();
+      drawStroke(currentStroke, rect);
+    });
+    function endStroke(){
+      if(currentStroke){ strokes.push(currentStroke); currentStroke = null; }
+    }
+    canvas.addEventListener('pointerup', endStroke);
+    canvas.addEventListener('pointercancel', endStroke);
+
+    /* ---- Tokens ---- */
+    var tokenSeq = 0;
+    function addToken(team, gender){
+      var el = document.createElement('div');
+      var id = 'tok' + (tokenSeq++);
+      el.dataset.id = id;
+      el.className = 'token ' + (gender==='F'?'female':'male') + ' team-' + team.toLowerCase();
+      el.textContent = gender;
+      var startX = 0.5 + (Math.random()-0.5)*0.2;
+      var startY = 0.5 + (Math.random()-0.5)*0.2;
+      el.style.left = (startX*100) + '%';
+      el.style.top = (startY*100) + '%';
+      tokenLayer.appendChild(el);
+      attachDrag(el);
+      return el;
+    }
+    function addBall(){
+      var el = document.createElement('div');
+      el.className = 'token ball';
+      el.style.left = '50%';
+      el.style.top = '50%';
+      tokenLayer.appendChild(el);
+      attachDrag(el);
+      return el;
+    }
+
+    function attachDrag(el){
+      var dragging = false;
+      el.addEventListener('pointerdown', function(e){
+        if(mode !== 'move') return;
+        e.stopPropagation();
+        el.setPointerCapture(e.pointerId);
+        el.classList.add('dragging');
+        dragging = true;
+        trash.classList.add('show');
+        move(e);
+      });
+      el.addEventListener('pointermove', function(e){
+        if(!dragging) return;
+        move(e);
+      });
+      function overTrash(e){
+        var r = trash.getBoundingClientRect();
+        return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      }
+      function move(e){
+        var rect = frameEl.getBoundingClientRect();
+        var xr = Math.min(1, Math.max(0, (e.clientX-rect.left)/rect.width));
+        var yr = Math.min(1, Math.max(0, (e.clientY-rect.top)/rect.height));
+        el.style.left = (xr*100) + '%';
+        el.style.top = (yr*100) + '%';
+        var over = overTrash(e);
+        trash.classList.toggle('hover', over);
+        el.classList.toggle('marked', over);
+      }
+      function release(e){
+        if(!dragging) return;
+        dragging = false;
+        el.classList.remove('dragging');
+        trash.classList.remove('show', 'hover');
+        if(el.classList.contains('marked')){
+          el.remove();
+        }
+      }
+      el.addEventListener('pointerup', release);
+      el.addEventListener('pointercancel', release);
+    }
+
+    return {
+      setMode: function(m){
+        mode = m;
+        canvas.classList.toggle('inactive', m !== 'draw');
+      },
+      setColor: function(c){ drawColor = c; },
+      addToken: addToken,
+      addBall: addBall,
+      clearTokens: function(){ tokenLayer.innerHTML = ''; },
+      clearDrawing: function(){ strokes = []; redraw(); },
+      undoStroke: function(){ strokes.pop(); redraw(); },
+      resize: function(){ fitFrame(); resizeCanvas(); }
+    };
+  }
+
+  var boardFull = createBoard(document.getElementById('frameFull'), 'full');
+  var boardZoneLeft = null, boardZoneRight = null;
+  var zoneSide = 'left';
+
+  function ensureZoneBoards(){
+    if(!boardZoneLeft){
+      boardZoneLeft = createBoard(document.getElementById('frameZone'), 'zone', 'left');
+    }
+  }
+  ensureZoneBoards();
+
+  var boards = [boardFull, boardZoneLeft];
+  function activeBoard(){
+    if(document.getElementById('boardFull').classList.contains('active')) return boardFull;
+    return boardZoneLeft;
+  }
+
+  /* ================= Tabs ================= */
+  var tabFullBtn = document.getElementById('tabFullBtn');
+  var tabZoneBtn = document.getElementById('tabZoneBtn');
+  var boardFullEl = document.getElementById('boardFull');
+  var boardZoneEl = document.getElementById('boardZone');
+
+  tabFullBtn.addEventListener('click', function(){
+    tabFullBtn.classList.add('active'); tabZoneBtn.classList.remove('active');
+    boardFullEl.classList.add('active'); boardZoneEl.classList.remove('active');
+    requestAnimationFrame(function(){ boardFull.resize(); });
+  });
+  tabZoneBtn.addEventListener('click', function(){
+    tabZoneBtn.classList.add('active'); tabFullBtn.classList.remove('active');
+    boardZoneEl.classList.add('active'); boardFullEl.classList.remove('active');
+    requestAnimationFrame(function(){ boardZoneLeft.resize(); });
+  });
+
+  var zoneLeftBtn = document.getElementById('zoneLeftBtn');
+  var zoneRightBtn = document.getElementById('zoneRightBtn');
+  zoneLeftBtn.addEventListener('click', function(){
+    if(zoneSide === 'left') return;
+    zoneSide = 'left';
+    zoneLeftBtn.classList.add('active'); zoneRightBtn.classList.remove('active');
+    boardZoneLeft = createBoard(document.getElementById('frameZone'), 'zone', 'left');
+    boardZoneLeft.setMode(currentMode);
+    boardZoneLeft.setColor(currentColor);
+  });
+  zoneRightBtn.addEventListener('click', function(){
+    if(zoneSide === 'right') return;
+    zoneSide = 'right';
+    zoneRightBtn.classList.add('active'); zoneLeftBtn.classList.remove('active');
+    boardZoneLeft = createBoard(document.getElementById('frameZone'), 'zone', 'right');
+    boardZoneLeft.setMode(currentMode);
+    boardZoneLeft.setColor(currentColor);
+  });
+
+  /* ================= Dock controls ================= */
+  var currentMode = 'move';
+  var currentColor = '#E63946';
+
+  document.querySelectorAll('.add-btn[data-team]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      activeBoard().addToken(btn.dataset.team, btn.dataset.gender);
+    });
+  });
+  document.getElementById('addBallBtn').addEventListener('click', function(){
+    activeBoard().addBall();
+  });
+
+  var modeToggle = document.getElementById('modeToggle');
+  modeToggle.addEventListener('click', function(e){
+    var btn = e.target.closest('button[data-mode]');
+    if(!btn) return;
+    currentMode = btn.dataset.mode;
+    modeToggle.querySelectorAll('button').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    boardFull.setMode(currentMode);
+    boardZoneLeft.setMode(currentMode);
+    showToast(currentMode === 'draw' ? 'Draw mode — sketch runs and passes' : 'Move mode — drag players');
+  });
+
+  var colorGroup = document.getElementById('colorGroup');
+  colorGroup.addEventListener('click', function(e){
+    var btn = e.target.closest('.swatch');
+    if(!btn) return;
+    currentColor = btn.dataset.color;
+    colorGroup.querySelectorAll('.swatch').forEach(function(b){ b.classList.toggle('active', b===btn); });
+    boardFull.setColor(currentColor);
+    boardZoneLeft.setColor(currentColor);
+  });
+
+  document.getElementById('undoBtn').addEventListener('click', function(){ activeBoard().undoStroke(); });
+  document.getElementById('clearDrawBtn').addEventListener('click', function(){ activeBoard().clearDrawing(); });
+  document.getElementById('clearTokensBtn').addEventListener('click', function(){ activeBoard().clearTokens(); });
+  document.getElementById('resetBtn').addEventListener('click', function(){
+    activeBoard().clearTokens();
+    activeBoard().clearDrawing();
+    showToast('Board reset');
+  });
+
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 1400);
+  }
+
+  window.addEventListener('resize', function(){
+    boardFull.resize();
+    boardZoneLeft.resize();
+  });
+
+  showToast('Drag a player onto the bin to remove');
+
+})();
+</script>
+</body>
+</html>
